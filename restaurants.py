@@ -1,5 +1,8 @@
 from __future__ import print_function
 
+from itertools import islice
+from pprint import pprint
+
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.cursor import Cursor
@@ -39,6 +42,24 @@ class Restaurants(object):
             ]
         })
     
+    def by_zipcode_and_grade(self, zipcode, grade):
+        # type: (str, str) -> Cursor
+        return self.restaurants.find({
+            '$and': [
+                {'address.zipcode': zipcode},
+                {'grades': {'$elemMatch': {'grade': grade}}},
+            ]
+        })
+    
+    def by_zipcode_and_score_less_than(self, zipcode, score):
+        # type: (str, int) -> Cursor
+        return self.restaurants.find({
+            '$and': [
+                {'address.zipcode': zipcode},
+                {'grades': {'$elemMatch': {'score': {'$lt': score}}}},
+            ]
+        })
+    
     def close(self):
         # type: () -> None
         self.client.close()
@@ -56,12 +77,12 @@ if __name__ == '__main__':
     restaurants = Restaurants()  # type: Restaurants
     print(restaurants.count())
     print()
-    # map(pprint,
-    #     islice((restaurant['address'].get('zipcode', None) for restaurant in
-    #             restaurants.by_borough("Brooklyn")), 0, 10))
+    map(pprint,
+        islice((restaurant['address'].get('zipcode', None) for restaurant in
+                restaurants.by_borough("Brooklyn")), 0, 10))
     map(print, restaurants.by_borough('Brooklyn').limit(2))
     print()
     map(print, restaurants.by_zipcode('11215').limit(2))
     print()
-    map(print, restaurants.by_borough_and_zipcode('Brooklyn', '11209').limit(2))
+    map(pprint, restaurants.by_borough_and_zipcode('Brooklyn', '11209').limit(2))
     restaurants.close()
