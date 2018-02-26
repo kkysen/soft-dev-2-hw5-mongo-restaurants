@@ -58,6 +58,7 @@ class Movies(object):
             query = {}
         else:
             query = {"$and": self.query}
+        self.query = []
         return self.movies.find(query)
     
     # query methods (chainable, will combine with $and)
