@@ -63,6 +63,7 @@ class Movies(object):
     
     def drop(self):
         # type: () -> None
+        print("dropping movies")
         self.movies.drop()
     
     def import_bson(self, data):
@@ -71,6 +72,7 @@ class Movies(object):
     
     def import_json_file(self, filename='movies.json'):
         # type: (str) -> None
+        print("import movies from", filename)
         with open(filename) as f:
             self.import_bson(json_util.loads(f.read()))
     

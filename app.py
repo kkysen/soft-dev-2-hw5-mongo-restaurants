@@ -57,7 +57,7 @@ def query_movies():
 
 
 if __name__ == '__main__':
-    reload_movies = False
+    reload_movies = True
     if reload_movies:
         movies.drop()
         movies.import_json_file()
