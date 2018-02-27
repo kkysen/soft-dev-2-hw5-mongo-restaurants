@@ -21,9 +21,15 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.cursor import Cursor
 from pymongo.database import Database
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 
 from bson import json_util
+
+
+def query(query_func):
+    # type: (Callable | callable) -> Callable
+    query_func.is_query = True
+    return query_func
 
 
 class Movies(object):
@@ -38,6 +44,7 @@ class Movies(object):
         self.db = self.client[db_name]  # type: Database
         self.movies = self.db[collection_name]  # type: Collection
         self.query = []  # type: List[Dict[str, Any]]
+        self.query_funcs = {}  # type: Dict[str, Callable]
         
     def count(self):
         # type: () -> int
@@ -62,32 +69,38 @@ class Movies(object):
         return self.movies.find(query)
     
     # query methods (chainable, will combine with $and)
-    
+
+    @query
     def with_title(self, title):
         # type: (str) -> Movies
         self.query.append({"title": title})
         return self
-    
+
+    @query
     def with_notes(self, notes):
         # type: (str) -> Movies
         self.query.append({"notes": notes})
         return self
-    
+
+    @query
     def by_director(self, director):
         # type: (str) -> Movies
         self.query.append({"director": director})
         return self
-    
+
+    @query
     def with_cast(self, cast):
         # type: (str) -> Movies
         self.query.append({"cast": cast})
         return self
-    
+
+    @query
     def in_genre(self, genre):
         # type: (str) -> Movies
         self.query.append({"genre": genre})
         return self
-    
+
+    @query
     def in_years(self, start_year, end_year):
         # type: (int, int) -> Movies
         self.query.append({"year": {
