@@ -17,6 +17,8 @@ Import Mechanism:
 
 from __future__ import print_function
 
+import inspect
+
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.cursor import Cursor
@@ -26,10 +28,20 @@ from typing import List, Dict, Any, Callable
 from bson import json_util
 
 
-def query(query_func):
-    # type: (Callable | callable) -> Callable
-    query_func.is_query = True
-    return query_func
+def query(*arg_types):
+    # type: (List[type]) -> Callable
+    for arg_type in arg_types:
+        assert type(arg_type) == type
+    
+    def decorator(query_func):
+        # type: (Callable) -> Callable
+        assert len(arg_types) == len(inspect.getargspec(query_func).args) - 1
+        query_func.is_query = True
+        query_func.num_args = len(arg_types)
+        query_func.arg_types = arg_types
+        return query_func
+    
+    return decorator
 
 
 class Movies(object):
@@ -44,11 +56,14 @@ class Movies(object):
         self.db = self.client[db_name]  # type: Database
         self.movies = self.db[collection_name]  # type: Collection
         self.query = []  # type: List[Dict[str, Any]]
-        self.query_funcs = {}  # type: Dict[str, Callable]
-        
+    
     def count(self):
         # type: () -> int
         return self.movies.count()
+    
+    def drop(self):
+        # type: () -> None
+        self.movies.drop()
     
     def import_bson(self, data):
         # type: (List[Dict[str, Any]]) -> None
@@ -69,38 +84,67 @@ class Movies(object):
         return self.movies.find(query)
     
     # query methods (chainable, will combine with $and)
-
-    @query
+    
+    def queries(self):
+        # type: () -> List[Dict[str, str | int]]
+        return [{
+            "name": name,
+            "numArgs": attr.num_args,
+            "argTypes": [arg_type.__name__ for arg_type in attr.arg_types],
+        }
+            for name, attr in inspect.getmembers(self)
+            if inspect.ismethod(attr) and hasattr(attr, 'is_query')
+        ]
+    
+    @query(str)
     def with_title(self, title):
         # type: (str) -> Movies
         self.query.append({"title": title})
         return self
-
-    @query
+    
+    @query(str)
     def with_notes(self, notes):
         # type: (str) -> Movies
         self.query.append({"notes": notes})
         return self
-
-    @query
+    
+    @query(str)
     def by_director(self, director):
         # type: (str) -> Movies
         self.query.append({"director": director})
         return self
-
-    @query
+    
+    @query(str)
     def with_cast(self, cast):
         # type: (str) -> Movies
         self.query.append({"cast": cast})
         return self
-
-    @query
+    
+    @query(str)
     def in_genre(self, genre):
         # type: (str) -> Movies
         self.query.append({"genre": genre})
         return self
-
-    @query
+    
+    @query(int)
+    def in_year(self, year):
+        # type: (int) -> Movies
+        self.query.append({"year": year})
+        return self
+    
+    @query(int)
+    def before_year(self, year):
+        # type: (int) -> Movies
+        self.query.append({"year": {"$lte": year}})
+        return self
+    
+    @query(int)
+    def after_year(self, year):
+        # type: (int) -> Movies
+        self.query.append({"year": {"$gte": year}})
+        return self
+    
+    @query(int, int)
     def in_years(self, start_year, end_year):
         # type: (int, int) -> Movies
         self.query.append({"year": {
@@ -134,11 +178,11 @@ if __name__ == '__main__':
         import pprint
         
         pprint = pprint.pprint
-
+    
     pprint("***NUMBER OF MOVIES***")
     pprint(movies.count())
     pprint()
-
+    
     # director
     print("***"
           "MOVIES BY DIRECTOR 'D. W. Griffith' "
@@ -148,7 +192,7 @@ if __name__ == '__main__':
         .fetch()
         )
     print('\n')
-
+    
     # director and cast
     print("***"
           "MOVIES BY DIRECTOR 'D. W. Griffith' "
@@ -160,7 +204,7 @@ if __name__ == '__main__':
         .fetch()
         )
     print('\n')
-
+    
     # director and cast and title
     print("***"
           "MOVIES BY DIRECTOR 'D. W. Griffith' "
